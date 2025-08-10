@@ -139,9 +139,14 @@ export async function recordPendingDeposit(
 }
 
 function generateId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    // @ts-ignore compat for Node/Web crypto typing
-    return (crypto as any).randomUUID();
+  const globalCrypto: unknown =
+    typeof crypto !== "undefined" ? (crypto as unknown) : undefined;
+  if (
+    globalCrypto &&
+    typeof (globalCrypto as { randomUUID?: () => string }).randomUUID ===
+      "function"
+  ) {
+    return (globalCrypto as { randomUUID: () => string }).randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
