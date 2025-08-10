@@ -68,3 +68,20 @@ body {
     --radius: 0.5rem;
   }
 }
+
+/* Simple coin flip animation */
+@keyframes coin-flip {
+  0% {
+    transform: rotateY(0deg);
+  }
+  50% {
+    transform: rotateY(540deg);
+  }
+  100% {
+    transform: rotateY(1080deg);
+  }
+}
+
+.animate-coin-flip {
+  animation: coin-flip 1s ease-in-out both;
+}

@@ -14,6 +14,7 @@ import {
 } from "wagmi";
 
 import { ShareButton } from "./ui/Share";
+import CoinFlipGame from "~/components/ui/CoinFlipGame";
 
 import { config } from "~/components/providers/WagmiProvider";
 import { Button } from "~/components/ui/Button";
@@ -202,14 +203,7 @@ export default function Demo(
 
         <h1 className="text-2xl font-bold text-center mb-4">{title}</h1>
 
-        {activeTab === "home" && (
-          <div className="flex items-center justify-center h-[calc(100vh-200px)] px-6">
-            <div className="text-center w-full max-w-md mx-auto">
-              <p className="text-lg mb-2">Put your content here!</p>
-              <p className="text-sm text-gray-500">Powered by Neynar 🪐</p>
-            </div>
-          </div>
-        )}
+        {activeTab === "home" && <CoinFlipGame />}
 
         {activeTab === "actions" && (
           <div className="space-y-3 px-6 w-full max-w-md mx-auto">
