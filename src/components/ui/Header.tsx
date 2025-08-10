@@ -5,6 +5,8 @@ import { APP_NAME } from "~/lib/constants";
 import sdk from "@farcaster/frame-sdk";
 import { useMiniApp } from "@neynar/react";
 import { Button } from "~/components/ui/Button";
+import { useChips } from "~/components/ui/ChipsProvider";
+import { DepositModal, WithdrawModal } from "~/components/ui/ChipsModals";
 
 type HeaderProps = {
   neynarUser?: {
@@ -17,6 +19,9 @@ export function Header({ neynarUser }: HeaderProps) {
   const { context, actions, added } = useMiniApp();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [hasClickedPfp, setHasClickedPfp] = useState(false);
+  const { balance, chipUsdRate } = useChips();
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const addressShort = useMemo(() => {
     const addr = context?.user?.verifiedAddresses?.ethAddresses?.[0];
     if (!addr) return null;
@@ -94,10 +99,36 @@ export function Header({ neynarUser }: HeaderProps) {
                       </p>
                     </>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Chips: {balance} (≈ $
+                    {(balance * (chipUsdRate || 0.001)).toFixed(3)} USD)
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    className="max-w-none px-3 py-2 text-sm"
+                    onClick={() => setShowDeposit(true)}
+                  >
+                    ➕ Deposit
+                  </Button>
+                  <Button
+                    className="max-w-none px-3 py-2 text-sm"
+                    onClick={() => setShowWithdraw(true)}
+                  >
+                    ⬇️ Withdraw
+                  </Button>
                 </div>
               </div>
             </div>
           )}
+          <DepositModal
+            open={showDeposit}
+            onClose={() => setShowDeposit(false)}
+          />
+          <WithdrawModal
+            open={showWithdraw}
+            onClose={() => setShowWithdraw(false)}
+          />
         </>
       )}
     </div>

@@ -7,6 +7,13 @@ import { Label } from "~/components/ui/label";
 import { ShareButton } from "~/components/ui/Share";
 import { cn } from "~/lib/utils";
 import { useMiniApp } from "@neynar/react";
+import { useChips } from "~/components/ui/ChipsProvider";
+import {
+  DepositModal,
+  InsufficientBalanceModal,
+  WithdrawModal,
+} from "~/components/ui/ChipsModals";
+import { fetchWithAuth } from "~/lib/auth";
 
 type Side = "heads" | "tails";
 
@@ -14,7 +21,7 @@ export default function CoinFlipGame() {
   const { context } = useMiniApp();
 
   const [hasClaimed, setHasClaimed] = useState(false);
-  const [chips, setChips] = useState<number>(0);
+  const { balance: chips, minWagerBalance, chipUsdRate, refresh } = useChips();
   const [selectedSide, setSelectedSide] = useState<Side | null>(null);
   const [betAmount, setBetAmount] = useState<string>("");
   const [isFlipping, setIsFlipping] = useState(false);
@@ -45,7 +52,6 @@ export default function CoinFlipGame() {
   const canPlaceBet = useMemo(() => {
     const amount = Number(betAmount);
     return (
-      hasClaimed &&
       !isFlipping &&
       didWin === null &&
       outcome === null &&
@@ -54,38 +60,67 @@ export default function CoinFlipGame() {
       amount > 0 &&
       amount <= chips
     );
-  }, [hasClaimed, isFlipping, didWin, outcome, selectedSide, betAmount, chips]);
+  }, [isFlipping, didWin, outcome, selectedSide, betAmount, chips]);
 
-  const claimChips = useCallback(() => {
+  const claimChips = useCallback(async () => {
     if (hasClaimed) return;
     setHasClaimed(true);
-    setChips(1000);
-  }, [hasClaimed]);
+    // bootstrap some chips for demo via deposit
+    try {
+      await fetchWithAuth("/api/chips/deposit-demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      await refresh();
+    } catch {}
+  }, [hasClaimed, refresh]);
 
   const setQuickAmount = useCallback(
     (amount: number) => setBetAmount(String(amount)),
     []
   );
 
-  const handlePlaceBet = useCallback(() => {
-    if (!canPlaceBet || !selectedSide) return;
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showInsufficient, setShowInsufficient] = useState(false);
+
+  const handlePlaceBet = useCallback(async () => {
     const amount = Number(betAmount);
-    // Start visual flip
+    if (!selectedSide || !Number.isFinite(amount) || amount <= 0) return;
+    if (chips < minWagerBalance) {
+      setShowInsufficient(true);
+      return;
+    }
+    if (amount > chips) return;
     setIsFlipping(true);
     setOutcome(null);
     setDidWin(null);
-    // Resolve after animation
-    const flipTo = Math.random() < 0.5 ? ("heads" as Side) : ("tails" as Side);
-    setTimeout(() => {
+    try {
+      const res = await fetchWithAuth("/api/chips/bet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, side: selectedSide }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Bet failed" }));
+        throw new Error(err.error || "Bet failed");
+      }
+      const data = (await res.json()) as { outcome: Side; didWin: boolean };
+      // Show animation matching outcome
+      const flipTo = data.outcome;
+      setTimeout(() => {
+        setIsFlipping(false);
+        setOutcome(flipTo);
+        setDidWin(data.didWin);
+        const nextBoundary = Math.ceil(Date.now() / 60_000) * 60_000;
+        setRoundEndsAt(nextBoundary);
+      }, 1100);
+      await refresh();
+    } catch {
       setIsFlipping(false);
-      setOutcome(flipTo);
-      const win = flipTo === selectedSide;
-      setDidWin(win);
-      setChips((prev) => (win ? prev + amount : prev - amount));
-      const nextBoundary = Math.ceil(Date.now() / 60_000) * 60_000;
-      setRoundEndsAt(nextBoundary);
-    }, 1100);
-  }, [betAmount, canPlaceBet, selectedSide]);
+    }
+  }, [betAmount, selectedSide, chips, minWagerBalance, refresh]);
 
   const resetRound = useCallback(() => {
     setSelectedSide(null);
@@ -117,6 +152,23 @@ export default function CoinFlipGame() {
         <div className="text-right">
           <div className="text-xs text-muted-foreground">Your chips</div>
           <div className="font-semibold text-foreground">{chips}</div>
+          <div className="text-[10px] text-muted-foreground">
+            ≈ ${(chips * (chipUsdRate || 0.001)).toFixed(3)} USD
+          </div>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => setShowDeposit(true)}
+              className="text-xs px-2 py-1 rounded border border-border bg-secondary text-secondary-foreground"
+            >
+              ➕ Deposit
+            </button>
+            <button
+              onClick={() => setShowWithdraw(true)}
+              className="text-xs px-2 py-1 rounded border border-border bg-secondary text-secondary-foreground"
+            >
+              ⬇️ Withdraw
+            </button>
+          </div>
         </div>
       </div>
 
@@ -199,10 +251,16 @@ export default function CoinFlipGame() {
         </div>
         <Button
           onClick={handlePlaceBet}
-          disabled={!canPlaceBet}
+          disabled={!canPlaceBet || chips < minWagerBalance}
           isLoading={isFlipping}
         >
-          {isFlipping ? "Flipping..." : "Place Bet"}
+          {isFlipping
+            ? "Flipping..."
+            : chips < minWagerBalance
+            ? `You need at least ${minWagerBalance} chips ($${(
+                minWagerBalance * (chipUsdRate || 0.001)
+              ).toFixed(2)})`
+            : "Place Bet"}
         </Button>
         {didWin !== null && outcome && (
           <div className="text-center text-sm">
@@ -278,6 +336,19 @@ export default function CoinFlipGame() {
           </button>
         </div>
       </div>
+      <DepositModal open={showDeposit} onClose={() => setShowDeposit(false)} />
+      <WithdrawModal
+        open={showWithdraw}
+        onClose={() => setShowWithdraw(false)}
+      />
+      <InsufficientBalanceModal
+        open={showInsufficient}
+        onClose={() => setShowInsufficient(false)}
+        onDeposit={() => {
+          setShowInsufficient(false);
+          setShowDeposit(true);
+        }}
+      />
     </div>
   );
 }

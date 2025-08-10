@@ -100,3 +100,18 @@ export function createCookie(name: string, value: string, options: {
 export function clearCookie(name: string) {
   return `${name}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly; Secure`;
 }
+
+// Client-side helper for authenticated requests
+export async function fetchWithAuth(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  const mergedInit: RequestInit = {
+    credentials: "include",
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+    },
+  };
+  return fetch(input, mergedInit);
+}
