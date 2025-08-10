@@ -25,6 +25,7 @@ import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
 import { USE_WALLET, APP_NAME } from "~/lib/constants";
+// useSignMessage is already imported from wagmi (line 7)
 
 export type Tab = "home" | "actions" | "context" | "wallet";
 
@@ -46,6 +47,10 @@ export default function Demo(
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { signMessageAsync } = useSignMessage();
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
     console.log("isSDKLoaded", isSDKLoaded);
@@ -55,10 +60,32 @@ export default function Demo(
     console.log("chainId", chainId);
   }, [context, address, isConnected, chainId, isSDKLoaded]);
 
-  // Fetch Neynar user object when context is available
+  // Wallet sign-in (SIWE-like): client signs a message, server sets cookie
+  const signIn = useCallback(async () => {
+    if (!isConnected || !address) return;
+    const host =
+      typeof window !== "undefined" ? window.location.host : "localhost";
+    const nonce = Math.floor(Math.random() * 1e9).toString(36);
+    const expires = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const message = `Sign in to ${host} with address ${address}\nNonce: ${nonce}\nExpires: ${expires}`;
+    const signature = await signMessageAsync({ message });
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, message, signature }),
+    });
+    if (res.ok) {
+      setIsSignedIn(true);
+      try {
+        await fetch("/api/auth");
+      } catch {}
+    }
+  }, [isConnected, address, signMessageAsync]);
+
+  // Fetch Neynar user object when signed in
   useEffect(() => {
     const fetchNeynarUserObject = async () => {
-      if (context?.user?.fid) {
+      if (isSignedIn && context?.user?.fid) {
         try {
           const response = await fetch(`/api/users?fids=${context.user.fid}`);
           const data = await response.json();
@@ -72,7 +99,7 @@ export default function Demo(
     };
 
     fetchNeynarUserObject();
-  }, [context?.user?.fid]);
+  }, [isSignedIn, context?.user?.fid]);
 
   const {
     sendTransaction,
@@ -93,8 +120,7 @@ export default function Demo(
     isPending: isSignTypedPending,
   } = useSignTypedData();
 
-  const { disconnect } = useDisconnect();
-  const { connect, connectors } = useConnect();
+  // (removed duplicate useConnect declaration)
 
   const {
     switchChain,
@@ -123,7 +149,7 @@ export default function Demo(
 
   const sendNotification = useCallback(async () => {
     setSendNotificationResult("");
-    if (!notificationDetails || !context) {
+    if (!notificationDetails || !context || !isSignedIn) {
       return;
     }
 
@@ -133,7 +159,6 @@ export default function Demo(
         mode: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fid: context.user.fid,
           notificationDetails,
         }),
       });
@@ -151,7 +176,7 @@ export default function Demo(
     } catch (error) {
       setSendNotificationResult(`Error: ${error}`);
     }
-  }, [context, notificationDetails]);
+  }, [context, notificationDetails, isSignedIn]);
 
   const sendTx = useCallback(() => {
     sendTransaction(
@@ -203,7 +228,29 @@ export default function Demo(
 
         <h1 className="text-2xl font-bold text-center mb-4">{title}</h1>
 
-        {activeTab === "home" && <CoinFlipGame />}
+        {activeTab === "home" &&
+          (isConnected && isSignedIn ? (
+            <CoinFlipGame />
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-3 py-10">
+              <div className="text-sm text-muted-foreground">
+                Connect your wallet and sign in to play
+              </div>
+              {!isConnected && (
+                <Button
+                  onClick={() => connect({ connector: connectors[0] })}
+                  className="w-full max-w-sm"
+                >
+                  Connect Wallet
+                </Button>
+              )}
+              {isConnected && !isSignedIn && (
+                <Button onClick={signIn} className="w-full max-w-sm">
+                  Sign In
+                </Button>
+              )}
+            </div>
+          ))}
 
         {activeTab === "actions" && (
           <div className="space-y-3 px-6 w-full max-w-md mx-auto">

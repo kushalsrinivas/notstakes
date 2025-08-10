@@ -1,70 +1,102 @@
-import { createClient } from '@farcaster/quick-auth';
-import { sdk } from '@farcaster/frame-sdk';
+import crypto from 'crypto';
 
-const quickAuth = createClient();
+type SessionPayload = {
+  address: string;
+  exp: number; // epoch seconds
+};
 
-export async function verifyAuth(request: Request): Promise<number | null> {
-    const auth = request.headers.get('authorization');
-    if (!auth?.startsWith('Bearer ')) return null;
-
-    try {
-        const payload = await quickAuth.verifyJwt({
-            token: auth.split(' ')[1],
-            domain: (new URL(process.env.NEXT_PUBLIC_URL!)).hostname
-        });
-
-        return Number(payload.sub);
-    } catch (error) {
-        console.error('Auth verification failed:', error);
-        return null;
-    }
+function getAuthSecret(): string {
+  const secret = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
+  if (!secret) {
+    // Fallback for local dev to avoid crashes
+    return 'dev-secret-please-set-NEXTAUTH_SECRET';
+  }
+  return secret;
 }
 
-// Helper to get user info from Farcaster API
-export async function getUserInfo(fid: number) {
-    try {
-        const response = await fetch(
-            `https://api.farcaster.xyz/fc/primary-address?fid=${fid}&protocol=ethereum`
-        );
-        if (!response.ok) return null;
-
-        const data = await response.json();
-        return {
-            fid,
-            address: data?.result?.address?.address
-        };
-    } catch (error) {
-        console.error('Failed to fetch user info:', error);
-        return null;
-    }
+function base64url(input: Buffer | string): string {
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
 }
 
-// Helper function to make authenticated requests
-export async function fetchWithAuth(url: string, options?: RequestInit) {
-    try {
-        // Ensure SDK is initialized
-        if (!sdk.quickAuth) {
-            throw new Error('QuickAuth SDK not initialized');
-        }
+function signSession(payload: SessionPayload): string {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const headerB64 = base64url(JSON.stringify(header));
+  const payloadB64 = base64url(JSON.stringify(payload));
+  const toSign = `${headerB64}.${payloadB64}`;
+  const hmac = crypto.createHmac('sha256', getAuthSecret());
+  hmac.update(toSign);
+  const sig = base64url(hmac.digest());
+  return `${toSign}.${sig}`;
+}
 
-        // If options include a body, ensure Content-Type is set
-        if (options?.body && !options.headers) {
-            options.headers = {
-                'Content-Type': 'application/json',
-            };
-        }
+function verifySessionToken(token: string): SessionPayload | null {
+  try {
+    const [headerB64, payloadB64, sig] = token.split('.');
+    if (!headerB64 || !payloadB64 || !sig) return null;
+    const toSign = `${headerB64}.${payloadB64}`;
+    const hmac = crypto.createHmac('sha256', getAuthSecret());
+    hmac.update(toSign);
+    const expectedSig = base64url(hmac.digest());
+    if (sig !== expectedSig) return null;
+    const payload: SessionPayload = JSON.parse(
+      Buffer.from(payloadB64, 'base64').toString('utf8')
+    );
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
 
-        // Make the request
-        const response = await sdk.quickAuth.fetch(url, options);
+export function createSessionToken(address: string, ttlSeconds = 60 * 60 * 24 * 30): string {
+  const payload: SessionPayload = {
+    address: address.toLowerCase(),
+    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+  };
+  return signSession(payload);
+}
 
-        // Handle non-OK responses
-        if (!response.ok) {
-            throw new Error(`Request failed with status ${response.status}`);
-        }
+export function parseCookies(request: Request): Record<string, string> {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const cookies: Record<string, string> = {};
+  cookieHeader.split(';').forEach((pair) => {
+    const [rawKey, ...rest] = pair.trim().split('=');
+    if (!rawKey) return;
+    const key = rawKey.trim();
+    const value = decodeURIComponent(rest.join('='));
+    cookies[key] = value;
+  });
+  return cookies;
+}
 
-        return response;
-    } catch (error) {
-        console.error('fetchWithAuth error:', error);
-        throw error; // Re-throw to let the caller handle it
-    }
+export async function verifyWalletAuth(request: Request): Promise<string | null> {
+  const cookies = parseCookies(request);
+  const token = cookies['session'];
+  if (!token) return null;
+  const payload = verifySessionToken(token);
+  return payload?.address ?? null;
+}
+
+export function createCookie(name: string, value: string, options: {
+  httpOnly?: boolean;
+  path?: string;
+  sameSite?: 'lax' | 'strict' | 'none';
+  secure?: boolean;
+  maxAge?: number; // seconds
+} = {}) {
+  const parts = [`${name}=${encodeURIComponent(value)}`];
+  if (options.maxAge) parts.push(`Max-Age=${options.maxAge}`);
+  parts.push(`Path=${options.path || '/'}`);
+  parts.push(`SameSite=${options.sameSite || 'Lax'}`);
+  if (options.httpOnly !== false) parts.push('HttpOnly');
+  if (options.secure !== false) parts.push('Secure');
+  return parts.join('; ');
+}
+
+export function clearCookie(name: string) {
+  return `${name}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly; Secure`;
 }

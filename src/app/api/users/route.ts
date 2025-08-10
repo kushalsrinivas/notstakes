@@ -1,7 +1,12 @@
 import { NeynarAPIClient } from '@neynar/nodejs-sdk';
 import { NextResponse } from 'next/server';
+import { verifyWalletAuth } from '~/lib/auth';
 
 export async function GET(request: Request) {
+  const address = await verifyWalletAuth(request);
+  if (!address) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const apiKey = process.env.NEYNAR_API_KEY;
   const { searchParams } = new URL(request.url);
   const fids = searchParams.get('fids');

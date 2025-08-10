@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { APP_NAME } from "~/lib/constants";
 import sdk from "@farcaster/frame-sdk";
 import { useMiniApp } from "@neynar/react";
+import { Button } from "~/components/ui/Button";
 
 type HeaderProps = {
   neynarUser?: {
@@ -13,15 +14,20 @@ type HeaderProps = {
 };
 
 export function Header({ neynarUser }: HeaderProps) {
-  const { context } = useMiniApp();
+  const { context, actions, added } = useMiniApp();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [hasClickedPfp, setHasClickedPfp] = useState(false);
+  const addressShort = useMemo(() => {
+    const addr = context?.user?.verifiedAddresses?.ethAddresses?.[0];
+    if (!addr) return null;
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  }, [context?.user?.verifiedAddresses?.ethAddresses]);
 
   return (
     <div className="relative">
       <div className="mb-1 py-2 px-3 bg-card text-card-foreground rounded-lg flex items-center justify-between border-[3px] border-double border-primary">
         <div className="text-lg font-light">Welcome to {APP_NAME}!</div>
-        {context?.user && (
+        {context?.user ? (
           <div
             className="cursor-pointer"
             onClick={() => {
@@ -36,6 +42,16 @@ export function Header({ neynarUser }: HeaderProps) {
                 className="w-10 h-10 rounded-full border-2 border-primary"
               />
             )}
+          </div>
+        ) : (
+          <div className="ml-2">
+            <Button
+              onClick={actions.addMiniApp}
+              disabled={added}
+              className="max-w-none px-3 py-2 text-sm"
+            >
+              {added ? "Added" : "Add Mini App"}
+            </Button>
           </div>
         )}
       </div>
@@ -66,6 +82,11 @@ export function Header({ neynarUser }: HeaderProps) {
                   <p className="text-xs text-muted-foreground">
                     FID: {context.user.fid}
                   </p>
+                  {addressShort && (
+                    <p className="text-xs text-muted-foreground">
+                      Wallet: {addressShort}
+                    </p>
+                  )}
                   {neynarUser && (
                     <>
                       <p className="text-xs text-muted-foreground">

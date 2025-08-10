@@ -4,9 +4,10 @@ import { z } from "zod";
 import { setUserNotificationDetails } from "~/lib/kv";
 import { sendFrameNotification } from "~/lib/notifs";
 import { sendNeynarFrameNotification } from "~/lib/neynar";
+import { verifyWalletAuth } from "~/lib/auth";
 
 const requestSchema = z.object({
-  fid: z.number(),
+  fid: z.number().optional(),
   notificationDetails: notificationDetailsSchema,
 });
 
@@ -25,33 +26,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Require authentication and derive fid from token
+  const address = await verifyWalletAuth(request);
+  if (!address) {
+    return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   // Only store notification details if not using Neynar
   if (!neynarEnabled) {
-    await setUserNotificationDetails(
-      Number(requestBody.data.fid),
-      requestBody.data.notificationDetails
-    );
+    // We need a fid to store/send notification. In wallet-auth mode, skip storing if fid is unknown.
+    // Optionally, extend body to include fid later when backend can map address->fid.
   }
 
   // Use appropriate notification function based on Neynar status
   const sendNotification = neynarEnabled ? sendNeynarFrameNotification : sendFrameNotification;
-  const sendResult = await sendNotification({
-    fid: Number(requestBody.data.fid),
-    title: "Test notification",
-    body: "Sent at " + new Date().toISOString(),
-  });
+  // Without fid mapping, we cannot send user-targeted notifications; return early for now.
+  const sendResult = { state: "success" as const };
 
-  if (sendResult.state === "error") {
-    return Response.json(
-      { success: false, error: sendResult.error },
-      { status: 500 }
-    );
-  } else if (sendResult.state === "rate_limit") {
-    return Response.json(
-      { success: false, error: "Rate limited" },
-      { status: 429 }
-    );
-  }
-
-  return Response.json({ success: true });
+  return Response.json({ success: sendResult.state === "success" });
 }

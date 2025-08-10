@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from "react";
 import { Button } from "./Button";
 import { useMiniApp } from "@neynar/react";
 import { type ComposeCast } from "@farcaster/frame-sdk";
-import { fetchWithAuth } from "~/lib/auth";
+// In wallet-auth mode, use plain fetch; server checks cookie session
 
 interface EmbedConfig {
   path?: string;
@@ -45,7 +45,7 @@ export function ShareButton({
 
       const fetchBestFriends = async () => {
         try {
-          const response = await fetchWithAuth(`/api/best-friends`);
+          const response = await fetch(`/api/best-friends`);
           const data = await response.json();
           setBestFriends(data.bestFriends);
         } catch (err) {

@@ -74,25 +74,23 @@ const response = await fetchWithAuth("/api/protected-route");
 const data = await response.json();
 ```
 
-### Protected API Routes
+### Protected API Routes (Wallet Auth)
 
 1. Import the auth utilities:
 
 ```typescript
-import { verifyAuth } from "~/lib/auth";
+import { verifyWalletAuth } from "~/lib/auth";
 ```
 
 2. Verify authentication in your route:
 
 ```typescript
 export async function GET(request: Request) {
-  const auth = await verifyAuth(request);
-  if (!auth) {
+  const address = await verifyWalletAuth(request);
+  if (!address) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
-
-  // Your protected route logic here
-  return NextResponse.json({ fid: auth.fid });
+  return NextResponse.json({ address });
 }
 ```
 
