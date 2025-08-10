@@ -17,16 +17,33 @@ import { fetchWithAuth } from "~/lib/auth";
 
 type Side = "heads" | "tails";
 
+type CoinStyleVars = React.CSSProperties & {
+  "--final-rotation"?: string;
+  "--flip-duration"?: string;
+};
+
+type ConfettiStyleVars = React.CSSProperties & {
+  "--x"?: string;
+  "--y"?: string;
+  "--r"?: string;
+  "--dur"?: string;
+};
+
 export default function CoinFlipGame() {
   const { context } = useMiniApp();
 
-  const [hasClaimed, setHasClaimed] = useState(false);
   const { balance: chips, minWagerBalance, chipUsdRate, refresh } = useChips();
   const [selectedSide, setSelectedSide] = useState<Side | null>(null);
   const [betAmount, setBetAmount] = useState<string>("");
   const [isFlipping, setIsFlipping] = useState(false);
   const [outcome, setOutcome] = useState<Side | null>(null);
   const [didWin, setDidWin] = useState<boolean | null>(null);
+  const [coinPhase, setCoinPhase] = useState<
+    "idle" | "spinning" | "landing" | "landed"
+  >("idle");
+  const [finalRotation, setFinalRotation] = useState<number>(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [lastBet, setLastBet] = useState<number | null>(null);
   const [roundEndsAt, setRoundEndsAt] = useState<number>(() => {
     const now = Date.now();
     return Math.ceil(now / 60_000) * 60_000; // next minute boundary
@@ -62,20 +79,6 @@ export default function CoinFlipGame() {
     );
   }, [isFlipping, didWin, outcome, selectedSide, betAmount, chips]);
 
-  const claimChips = useCallback(async () => {
-    if (hasClaimed) return;
-    setHasClaimed(true);
-    // bootstrap some chips for demo via deposit
-    try {
-      await fetchWithAuth("/api/chips/deposit-demo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      await refresh();
-    } catch {}
-  }, [hasClaimed, refresh]);
-
   const setQuickAmount = useCallback(
     (amount: number) => setBetAmount(String(amount)),
     []
@@ -96,6 +99,9 @@ export default function CoinFlipGame() {
     setIsFlipping(true);
     setOutcome(null);
     setDidWin(null);
+    setCoinPhase("spinning");
+    setShowConfetti(false);
+    setLastBet(amount);
     try {
       const res = await fetchWithAuth("/api/chips/bet", {
         method: "POST",
@@ -109,16 +115,24 @@ export default function CoinFlipGame() {
       const data = (await res.json()) as { outcome: Side; didWin: boolean };
       // Show animation matching outcome
       const flipTo = data.outcome;
+      setFinalRotation(flipTo === "heads" ? 0 : 180);
+      setCoinPhase("landing");
       setTimeout(() => {
         setIsFlipping(false);
         setOutcome(flipTo);
         setDidWin(data.didWin);
+        setCoinPhase("landed");
+        if (data.didWin) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 1200);
+        }
         const nextBoundary = Math.ceil(Date.now() / 60_000) * 60_000;
         setRoundEndsAt(nextBoundary);
-      }, 1100);
+      }, 1200);
       await refresh();
     } catch {
       setIsFlipping(false);
+      setCoinPhase("idle");
     }
   }, [betAmount, selectedSide, chips, minWagerBalance, refresh]);
 
@@ -128,6 +142,9 @@ export default function CoinFlipGame() {
     setIsFlipping(false);
     setOutcome(null);
     setDidWin(null);
+    setCoinPhase("idle");
+    setFinalRotation(0);
+    setShowConfetti(false);
     // keep the global minute cadence; no change to roundEndsAt
   }, []);
 
@@ -184,7 +201,13 @@ export default function CoinFlipGame() {
 
       {/* Visual Coin */}
       <div className="flex items-center justify-center py-4">
-        <Coin isFlipping={isFlipping} outcome={outcome} />
+        <Coin
+          phase={coinPhase}
+          finalRotation={finalRotation}
+          didWin={didWin}
+          outcome={outcome}
+          showConfetti={showConfetti}
+        />
       </div>
 
       {/* Choose Side */}
@@ -197,11 +220,13 @@ export default function CoinFlipGame() {
           <SideButton
             label="Heads"
             selected={selectedSide === "heads"}
+            disabled={isFlipping || outcome !== null}
             onClick={() => setSelectedSide("heads")}
           />
           <SideButton
             label="Tails"
             selected={selectedSide === "tails"}
+            disabled={isFlipping || outcome !== null}
             onClick={() => setSelectedSide("tails")}
           />
         </div>
@@ -222,6 +247,7 @@ export default function CoinFlipGame() {
           pattern="[0-9]*"
           placeholder="Enter chips"
           value={betAmount}
+          disabled={isFlipping || outcome !== null}
           onChange={(e) => {
             const v = e.target.value.replace(/[^0-9]/g, "");
             setBetAmount(v);
@@ -232,9 +258,9 @@ export default function CoinFlipGame() {
             <button
               key={`${amt}-${idx}`}
               onClick={() => setQuickAmount(amt || 0)}
-              disabled={chips === 0}
+              disabled={chips === 0 || isFlipping || outcome !== null}
               className={cn(
-                "text-sm py-2 rounded-md border border-border bg-secondary/70 backdrop-blur-sm text-secondary-foreground disabled:opacity-50",
+                "text-sm py-2 rounded-md border border-border bg-secondary/70 backdrop-blur-sm text-secondary-foreground disabled:opacity-50 disabled:cursor-not-allowed",
                 idx === 3 && "font-medium"
               )}
             >
@@ -256,13 +282,22 @@ export default function CoinFlipGame() {
             : "Place Bet"}
         </Button>
         {didWin !== null && outcome && (
-          <div className="text-center text-sm">
-            {didWin ? (
-              <span className="text-foreground">You won! 🎉</span>
-            ) : (
-              <span className="text-muted-foreground">
-                You lost. Try again!
-              </span>
+          <div
+            className={cn(
+              "mt-2 rounded-md border border-border p-3 text-center animate-fade-in-up",
+              didWin
+                ? "bg-gradient-to-r from-primary/25 to-primary/5 text-primary-foreground"
+                : "bg-secondary/70 text-secondary-foreground"
+            )}
+          >
+            <div className="text-sm font-medium">
+              {didWin ? "You won!" : "You lost this round"}
+            </div>
+            {lastBet !== null && (
+              <div className="text-xs opacity-80">
+                {didWin ? "+" : "-"}
+                {lastBet} chips on {outcome.toUpperCase()}
+              </div>
             )}
           </div>
         )}
@@ -345,20 +380,23 @@ function SideButton({
   label,
   selected,
   onClick,
+  disabled,
 }: {
   label: string;
   selected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full py-3 rounded-lg border text-center transition-colors",
+        "w-full py-3 rounded-lg border text-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
         selected
           ? "bg-primary text-primary-foreground border-border"
           : "bg-secondary text-secondary-foreground border-border"
       )}
+      disabled={disabled}
     >
       <span className="text-lg">{label === "Heads" ? "🙂" : "🦅"}</span>
       <div className="text-sm mt-1">{label}</div>
@@ -367,23 +405,78 @@ function SideButton({
 }
 
 function Coin({
-  isFlipping,
+  phase,
+  finalRotation,
+  didWin,
   outcome,
+  showConfetti,
 }: {
-  isFlipping: boolean;
+  phase: "idle" | "spinning" | "landing" | "landed";
+  finalRotation: number;
+  didWin: boolean | null;
   outcome: Side | null;
+  showConfetti: boolean;
 }) {
+  const isSpinning = phase === "spinning";
+  const isLanding = phase === "landing";
+  const isLanded = phase === "landed";
+  const coinStateClass = cn(
+    "coin3d",
+    isLanded && didWin === true && "coin3d--win",
+    isLanded && didWin === false && "coin3d--lose"
+  );
   return (
-    <div
-      className={cn(
-        "relative w-20 h-20 rounded-full border border-border bg-accent text-accent-foreground grid place-items-center text-2xl overflow-hidden",
-        isFlipping && "animate-coin-flip"
+    <div className={coinStateClass}>
+      <div
+        className={cn(
+          "coin3d__inner",
+          isSpinning && "is-spinning",
+          isLanding && "is-flipping"
+        )}
+        style={
+          {
+            "--final-rotation": `${finalRotation}deg`,
+            "--flip-duration": "1200ms",
+          } as CoinStyleVars
+        }
+      >
+        <div className="coin3d__shine" />
+        <div className="coin3d__face coin3d__face--front text-2xl">🙂</div>
+        <div className="coin3d__face coin3d__face--back text-2xl">🦅</div>
+      </div>
+      {showConfetti && (
+        <div className="confetti-burst">
+          {Array.from({ length: 16 }).map((_, i) => {
+            const angle = (i / 16) * Math.PI * 2;
+            const dist = 60 + Math.random() * 40;
+            const x = Math.cos(angle) * dist;
+            const y = Math.sin(angle) * dist + 40;
+            const hue = Math.floor(200 + Math.random() * 120);
+            const dur = 700 + Math.random() * 600;
+            const rot = Math.floor(Math.random() * 180);
+            return (
+              <div
+                key={i}
+                className="confetti-piece"
+                style={
+                  {
+                    "--x": `${x}px`,
+                    "--y": `${y}px`,
+                    "--r": `${rot}deg`,
+                    "--dur": `${dur}ms`,
+                    background: `hsl(${hue} 80% 60%)`,
+                  } as ConfettiStyleVars
+                }
+              />
+            );
+          })}
+        </div>
       )}
-    >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-      {outcome === "heads" && !isFlipping && "🙂"}
-      {outcome === "tails" && !isFlipping && "🦅"}
-      {outcome === null && !isFlipping && "🪙"}
+      {isLanded && outcome && (
+        <div className="mt-3 text-center text-sm text-muted-foreground">
+          Landed on {outcome}
+        </div>
+      )}
     </div>
   );
 }
