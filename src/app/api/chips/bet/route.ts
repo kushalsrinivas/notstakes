@@ -23,8 +23,9 @@ export async function POST(request: Request) {
   try {
     const result = await placeBet(address, parsed.data);
     return NextResponse.json({ success: true, ...result });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Bet failed" }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Bet failed";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const res = NextResponse.json({ ok: true, address });
     res.headers.set('Set-Cookie', cookie);
     return res;
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }

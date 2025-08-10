@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { verifyWalletAuth } from "~/lib/auth";
 import { depositChips } from "~/lib/chips";
 import { CHIP_USD_RATE, PLATFORM_WALLET_ADDRESS, REQUIRED_CONFIRMATIONS } from "~/lib/constants";
-import { z } from "zod";
+import { z as zod } from "zod";
 import { getConfirmations, publicClient } from "~/lib/viem";
 import { getDepositIntent, setDepositIntent, recordPendingDeposit } from "~/lib/chips";
 import { getEthUsdPrice, isWithinTolerance } from "~/lib/prices";
 
-const schema = z.object({
+const schema = zod.object({
   // amount in chips requested by user
-  amount: z.number().int().positive(),
+  amount: zod.number().int().positive(),
   // optional on-chain txHash if the user already sent the deposit
-  txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).optional(),
+  txHash: zod.string().regex(/^0x[0-9a-fA-F]{64}$/).optional(),
 });
 
 export async function POST(request: Request) {
@@ -67,21 +67,19 @@ export async function POST(request: Request) {
     }
 
     // Validate amount tolerance vs intent and price feed
-    const ethUsd = await getEthUsdPrice();
+ 
     const intentChips = (await getDepositIntent(address)) ?? amount;
-    const expectedUsd = intentChips * CHIP_USD_RATE;
-    const actualEth = Number(tx.value) / 1e18;
-    const actualUsd = actualEth * ethUsd;
-    // if (!isWithinTolerance(actualUsd, expectedUsd, 0)) {
-    //   return NextResponse.json({ error: "Amount does not match expected value" }, { status: 400 });
-    // }
+  
+  
+
 
     // Accept the deposit and credit intent amount (chips are integer)
     const result = await depositChips(address, intentChips);
     await setDepositIntent(address, 0); // clear
     return NextResponse.json({ success: true, mode: "confirmed", ...result });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Deposit failed" }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Deposit failed";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
