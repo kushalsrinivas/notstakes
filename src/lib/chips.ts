@@ -201,8 +201,8 @@ export async function placeBet(
   const { amount, side } = params;
   assertPositiveInteger("amount", amount);
   const current = await getUserBalance(address);
-  if (current < 10) {
-    throw new Error("Minimum balance of 10 chips required to place a wager");
+  if (current < 1) {
+    throw new Error("Minimum balance of 1 chip required to place a wager");
   }
   if (amount > current) {
     throw new Error("Bet amount exceeds balance");

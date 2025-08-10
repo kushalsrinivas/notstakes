@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   }
 
   const balance = await getUserBalance(address);
-  return NextResponse.json({ balance, minWagerBalance: 10, chipUsdRate: CHIP_USD_RATE });
+  return NextResponse.json({ balance, minWagerBalance: 1, chipUsdRate: CHIP_USD_RATE });
 }
 
 

@@ -324,7 +324,7 @@ export default function Demo(
             <h2 className="text-lg font-semibold mb-2 text-foreground">
               Context
             </h2>
-            <div className="p-4 bg-card text-card-foreground rounded-lg border border-border">
+            <div className="p-4 glass-panel">
               <pre className="font-mono text-xs whitespace-pre-wrap break-words w-full">
                 {JSON.stringify(context, null, 2)}
               </pre>

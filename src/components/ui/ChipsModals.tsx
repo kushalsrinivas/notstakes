@@ -78,6 +78,7 @@ export function DepositModal({
         to: PLATFORM_WALLET_ADDRESS,
         value: parseEther(ethAmount.toFixed(6)),
       });
+      console.log("hash", hash);
       setTxHash(hash);
       // Notify backend with txHash so it can poll confirmations and credit chips
       const res = await fetchWithAuth("/api/chips/deposit", {
@@ -87,9 +88,11 @@ export function DepositModal({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Deposit failed" }));
+        console.log("err", err);
         throw new Error(err.error || "Deposit failed");
       }
       const json = await res.json();
+      console.log("json", json);
       if (json.mode === "confirmed") {
         await refresh();
         onClose();
@@ -117,6 +120,7 @@ export function DepositModal({
         onClose();
       }
     } catch (e: any) {
+      console.log("error", e);
       setError(e?.message || "Deposit failed");
     } finally {
       setIsLoading(false);
@@ -134,8 +138,8 @@ export function DepositModal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center">
-      <div className="w-full max-w-sm bg-card text-card-foreground border border-border rounded-lg p-4 space-y-3">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center">
+      <div className="w-full max-w-sm glass-panel p-4 space-y-3">
         <h3 className="font-semibold text-lg">Deposit Chips</h3>
         <p className="text-xs text-muted-foreground">
           Conversion: 1 chip = ${(chipUsdRate || CHIP_USD_RATE).toFixed(3)} USD
@@ -145,6 +149,7 @@ export function DepositModal({
           <Input
             id="deposit-amount"
             inputMode="numeric"
+            className="text-black"
             pattern="[0-9]*"
             value={amount}
             onChange={(e) => {
@@ -195,7 +200,7 @@ export function DepositModal({
               {PLATFORM_WALLET_ADDRESS}
             </button>
           </div>
-          <div>Network: Base Sepolia</div>
+          <div>Network: Base mainnet</div>
           <div>
             Note: Send the exact amount in one transaction. Credited after 3
             confirmations.
@@ -256,8 +261,8 @@ export function WithdrawModal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center">
-      <div className="w-full max-w-sm bg-card text-card-foreground border border-border rounded-lg p-4 space-y-3">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center">
+      <div className="w-full max-w-sm glass-panel p-4 space-y-3">
         <h3 className="font-semibold text-lg">Withdraw Chips</h3>
         <p className="text-xs text-muted-foreground">
           Conversion: 1 chip = {(chipUsdRate || CHIP_USD_RATE).toFixed(3)} USD
@@ -313,8 +318,8 @@ export function InsufficientBalanceModal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center">
-      <div className="w-full max-w-sm bg-card text-card-foreground border border-border rounded-lg p-4 space-y-3">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm grid place-items-center">
+      <div className="w-full max-w-sm glass-panel p-4 space-y-3">
         <h3 className="font-semibold text-lg">Insufficient Balance</h3>
         <p className="text-sm text-muted-foreground">
           You need at least 10 chips (= $0.01) to place a wager. Please deposit

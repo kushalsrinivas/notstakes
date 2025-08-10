@@ -25,7 +25,7 @@ const ChipsContext = createContext<ChipsContextValue | null>(null);
 
 export function ChipsProvider({ children }: { children: React.ReactNode }) {
   const [balance, setBalance] = useState(0);
-  const [minWagerBalance, setMinWagerBalance] = useState(10);
+  const [minWagerBalance, setMinWagerBalance] = useState(1);
   const [chipUsdRate, setChipUsdRate] = useState(0.001);
   const [isLoading, setIsLoading] = useState(true);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);

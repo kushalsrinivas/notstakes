@@ -26,32 +26,38 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card: #171717;
-    --card-foreground: #ededed;
-    --popover: #171717;
-    --popover-foreground: #ededed;
-    --primary: #3b82f6;
+    /* Black glassmorphism theme */
+    --background: #0b0b0f; /* near-black */
+    --foreground: #e6e6e6;
+    /* translucent glass surfaces */
+    --card: rgba(255, 255, 255, 0.06);
+    --card-foreground: #e6e6e6;
+    --popover: rgba(255, 255, 255, 0.06);
+    --popover-foreground: #e6e6e6;
+    /* elegant violet accent */
+    --primary: #8b5cf6;
     --primary-foreground: #ffffff;
-    --secondary: #1f2937;
-    --secondary-foreground: #f3f4f6;
-    --muted: #1f2937;
-    --muted-foreground: #9ca3af;
-    --accent: #1f2937;
-    --accent-foreground: #f3f4f6;
+    /* subtle secondary and muted layers */
+    --secondary: rgba(255, 255, 255, 0.04);
+    --secondary-foreground: #ededed;
+    --muted: rgba(255, 255, 255, 0.04);
+    --muted-foreground: #a3a3a3;
+    --accent: rgba(255, 255, 255, 0.05);
+    --accent-foreground: #ededed;
     --destructive: #ef4444;
     --destructive-foreground: #ffffff;
-    --border: #374151;
-    --input: #374151;
-    --ring: #3b82f6;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: #8b5cf6;
   }
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   font-family: "Inter", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -66,6 +72,26 @@ body {
 @layer base {
   :root {
     --radius: 0.5rem;
+  }
+}
+
+@layer components {
+  /* Reusable glass panel surface */
+  .glass-panel {
+    backdrop-filter: saturate(140%) blur(12px);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    background: var(--card);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .glass-nav {
+    backdrop-filter: saturate(140%) blur(16px);
+    -webkit-backdrop-filter: saturate(140%) blur(16px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 0.25rem);
   }
 }
 

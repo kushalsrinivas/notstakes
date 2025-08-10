@@ -23,8 +23,8 @@ export const PLATFORM_WALLET_ADDRESS =
     "0xB18F04b407464CB376eC029Ce5b7f114b1Efa182") as `0x${string}`;
 
 // Network: Base Sepolia testnet for now
-export const SUPPORTED_CHAIN_NAME = "base-sepolia";
-export const SUPPORTED_CHAIN_ID = 84532; // Base Sepolia chain id
+export const SUPPORTED_CHAIN_NAME = "base-mainnet";
+export const SUPPORTED_CHAIN_ID = 8453; // Base Sepolia chain id
 
 // Required confirmations for on-chain crediting
 export const REQUIRED_CONFIRMATIONS = 3;

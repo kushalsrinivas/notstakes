@@ -142,7 +142,7 @@ export default function CoinFlipGame() {
   return (
     <div className="w-full max-w-md mx-auto space-y-4">
       {/* Round + Chips Header */}
-      <div className="flex items-center justify-between bg-card text-card-foreground border border-border rounded-lg px-4 py-3">
+      <div className="flex items-center justify-between glass-panel px-4 py-3">
         <div>
           <div className="text-xs text-muted-foreground">Next round</div>
           <div className="font-semibold text-foreground">
@@ -158,13 +158,13 @@ export default function CoinFlipGame() {
           <div className="flex gap-2 mt-1">
             <button
               onClick={() => setShowDeposit(true)}
-              className="text-xs px-2 py-1 rounded border border-border bg-secondary text-secondary-foreground"
+              className="text-xs px-2 py-1 rounded border border-border bg-secondary/70 backdrop-blur-sm text-secondary-foreground"
             >
               ➕ Deposit
             </button>
             <button
               onClick={() => setShowWithdraw(true)}
-              className="text-xs px-2 py-1 rounded border border-border bg-secondary text-secondary-foreground"
+              className="text-xs px-2 py-1 rounded border border-border bg-secondary/70 backdrop-blur-sm text-secondary-foreground"
             >
               ⬇️ Withdraw
             </button>
@@ -175,28 +175,20 @@ export default function CoinFlipGame() {
       {/* Progress Bar */}
       <div className="w-full h-2 rounded bg-muted overflow-hidden">
         <div
-          className="h-full bg-primary transition-all"
+          className="h-full bg-primary/80 transition-all"
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
       {/* Claim Section */}
-      <div className="bg-card text-card-foreground border border-border rounded-lg p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-medium">Claim daily chips</div>
-            <div className="text-xs text-muted-foreground">
-              Come back every day for 1,000 chips
-            </div>
-          </div>
-          <Button onClick={claimChips} disabled={hasClaimed}>
-            {hasClaimed ? "Claimed" : "Claim 1,000"}
-          </Button>
-        </div>
+
+      {/* Visual Coin */}
+      <div className="flex items-center justify-center py-4">
+        <Coin isFlipping={isFlipping} outcome={outcome} />
       </div>
 
       {/* Choose Side */}
-      <div className="bg-card text-card-foreground border border-border rounded-lg p-4">
+      <div className="glass-panel p-4">
         <div className="mb-3">
           <div className="font-medium">Pick your side</div>
           <div className="text-xs text-muted-foreground">Heads or Tails</div>
@@ -216,7 +208,7 @@ export default function CoinFlipGame() {
       </div>
 
       {/* Bet Amount */}
-      <div className="bg-card text-card-foreground border border-border rounded-lg p-4 space-y-3">
+      <div className="glass-panel p-4 space-y-3">
         <div className="flex items-center justify-between">
           <Label htmlFor="bet-amount" className="font-medium">
             Bet amount
@@ -226,6 +218,7 @@ export default function CoinFlipGame() {
         <Input
           id="bet-amount"
           inputMode="numeric"
+          className="text-black"
           pattern="[0-9]*"
           placeholder="Enter chips"
           value={betAmount}
@@ -241,7 +234,7 @@ export default function CoinFlipGame() {
               onClick={() => setQuickAmount(amt || 0)}
               disabled={chips === 0}
               className={cn(
-                "text-sm py-2 rounded-md border border-border bg-secondary text-secondary-foreground disabled:opacity-50",
+                "text-sm py-2 rounded-md border border-border bg-secondary/70 backdrop-blur-sm text-secondary-foreground disabled:opacity-50",
                 idx === 3 && "font-medium"
               )}
             >
@@ -299,13 +292,8 @@ export default function CoinFlipGame() {
         )}
       </div>
 
-      {/* Visual Coin */}
-      <div className="flex items-center justify-center py-4">
-        <Coin isFlipping={isFlipping} outcome={outcome} />
-      </div>
-
       {/* Leaderboard Preview */}
-      <div className="bg-card text-card-foreground border border-border rounded-lg p-4">
+      <div className="glass-panel p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="font-medium">Leaderboard</div>
           <span className="text-xs text-muted-foreground">Daily</span>
@@ -388,10 +376,11 @@ function Coin({
   return (
     <div
       className={cn(
-        "w-20 h-20 rounded-full border border-border bg-accent text-accent-foreground grid place-items-center text-2xl",
+        "relative w-20 h-20 rounded-full border border-border bg-accent text-accent-foreground grid place-items-center text-2xl overflow-hidden",
         isFlipping && "animate-coin-flip"
       )}
     >
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
       {outcome === "heads" && !isFlipping && "🙂"}
       {outcome === "tails" && !isFlipping && "🦅"}
       {outcome === null && !isFlipping && "🪙"}
